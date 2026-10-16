@@ -1,12 +1,13 @@
 <div align="center">
 
-# 💰 Fee Management System — Student Fee Collection & Receipts
+# 💰 Fee Management System — Student Fee Collection Web App
 
-**A console-based application for managing courses, student fees, payments, receipts and dues**
+**A responsive web application for managing students, fees, payments and dues, with a full activity log**
 
 [![Java](https://img.shields.io/badge/Java-17+-ED8B00?style=flat-square&logo=openjdk&logoColor=white)](https://openjdk.org/)
-[![MySQL](https://img.shields.io/badge/MySQL-Database-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![JDBC](https://img.shields.io/badge/JDBC-Connector%2FJ%208.4-005C84?style=flat-square)](https://dev.mysql.com/downloads/connector/j/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![MySQL](https://img.shields.io/badge/MySQL-Fees%20%26%20Payments-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Activity%20Log-47A248?style=flat-square&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Maven](https://img.shields.io/badge/Maven-Build%20Tool-C71A36?style=flat-square&logo=apachemaven&logoColor=white)](https://maven.apache.org/)
 
 </div>
@@ -21,7 +22,7 @@
 4. [Architecture Overview](#-architecture-overview)
 5. [Project Structure](#-project-structure)
 6. [Database Design](#-database-design)
-7. [Menu Reference](#-menu-reference)
+7. [REST API Reference](#-rest-api-reference)
 8. [Installation & Running](#-installation--running)
 9. [Tech Stack Summary](#-tech-stack-summary)
 10. [User Roles](#-user-roles)
@@ -33,16 +34,16 @@
 
 ## 🎯 What is this Project?
 
-The **Fee Management System** is a Java application that replaces paper registers and spreadsheets for collecting student fees. It records every course, student and payment in a MySQL database, calculates what each student still owes, and prints a receipt for every payment.
+The **Fee Management System** is a Java web application that replaces paper registers and spreadsheets for collecting student fees. It records every student and payment in **MySQL**, works out what each student still owes, and keeps a searchable activity trail in **MongoDB**.
 
 The system covers four areas:
 
-- 📚 **Course setup** — define courses and their fee structure.
-- 🧑‍🎓 **Student enrolment** — enrol students with a course, fee and optional discount or scholarship.
-- 💳 **Fee collection** — accept full or partial payments and issue receipts.
-- 📊 **Reporting** — track dues, review payment history and export data to CSV.
+- 🧑‍🎓 **Student records** — add students with a course and total fee.
+- 💳 **Fee collection** — accept full or partial payments by several modes.
+- 📊 **Dashboard** — live totals for students, fees, collected and pending amounts.
+- 🕒 **Activity log** — every addition, deletion and payment is logged in MongoDB.
 
-Built with **Java 17** and **JDBC** on the backend and **MySQL 8** for storage. It runs as a menu-driven console program.
+Built with **Java 17 and Spring Boot** on the backend, a **plain HTML/CSS/JavaScript** frontend served by the same app, and two databases, each used for what it does best.
 
 ---
 
@@ -50,15 +51,14 @@ Built with **Java 17** and **JDBC** on the backend and **MySQL 8** for storage. 
 
 | Feature | Details |
 |---|---|
-| 📚 **Course Management** | Add courses, or update the fee of an existing course (`Add course`, `List courses`) |
-| 🧑‍🎓 **Student Enrolment** | Student ID is auto-generated, with course, phone, fee and discount captured at enrolment |
-| 💳 **Fee Collection** | Partial or full payments by Cash, UPI, Card, Bank transfer or Cheque |
-| 🛡️ **Overpayment Protection** | A payment above the outstanding due is rejected, using a transaction with `SELECT ... FOR UPDATE` so two users cannot overpay at once |
-| 🧾 **Receipts** | A printable receipt for every payment showing amount paid, total paid and balance due |
-| 📊 **Reports** | Student list with status (Paid, Partial, Unpaid), dues-only report with total outstanding, and full payment history |
-| ↩️ **Void Payment** | Remove a payment, and the amount returns to the student's due automatically |
-| 📤 **CSV Export** | Write all payments to `payments.csv` for Excel or accounts |
-| 🔒 **Data Integrity** | Primary and foreign keys, `NOT NULL` and `CHECK` constraints, `DECIMAL` money values and prepared statements |
+| 🧑‍🎓 **Student Management** | Add and delete students with name, email, course and total fee |
+| 💳 **Fee Collection** | Partial or full payments by Cash, UPI, Card or Bank Transfer |
+| 🛡️ **Overpayment Protection** | A payment above the outstanding due is rejected with a clear message |
+| 📊 **Live Dashboard** | Total students, total fees, amount collected and amount pending |
+| 🏷️ **Payment Status** | Each student is marked `PAID`, `PARTIAL` or `UNPAID` automatically |
+| 🕒 **Activity Log** | Latest 20 actions shown on the page, stored in MongoDB |
+| 📱 **Responsive UI** | Works on phones, tablets and desktops, with automatic dark mode |
+| 🔒 **Data Safety** | Input validation, HTML escaping in the UI, and deletion of a student's payments with the student |
 
 ---
 
@@ -69,63 +69,57 @@ Built with **Java 17** and **JDBC** on the backend and **MySQL 8** for storage. 
 │                          FEE COLLECTION FLOW                            │
 └─────────────────────────────────────────────────────────────────────────┘
 
-1. SET UP COURSES
-   └── Option 1 — add a course and its fee (or update an existing one)
+1. ADD STUDENT
+   ├── "Add Student" form — name, email, course, total fee
+   └── Saved in MySQL; an entry is written to the MongoDB activity log
          │
          ▼
-2. ENROL STUDENT
-   ├── Option 3 — name, phone, course, discount
-   └── Fee is copied from the course; Student ID (S0001, S0002 ...) is issued
+2. RECORD PAYMENT
+   ├── Choose a student who still has a balance, enter amount and mode
+   ├── System calculates the current due = total fee − payments so far
+   ├── Amount above the due  → rejected with an error message
+   └── Valid amount          → payment saved and logged
          │
          ▼
-3. COLLECT FEE
-   ├── Option 5 — student ID, amount, mode, reference
-   ├── System locks the student row and calculates the current due
-   ├── Amount above the due  → rejected, transaction rolled back
-   └── Valid amount          → payment saved and committed
+3. DASHBOARD UPDATES
+   ├── Student row shows new Paid / Due values and status tag
+   └── Summary cards refresh: collected and pending totals
          │
          ▼
-4. RECEIPT
-   └── Receipt (R00001, R00002 ...) printed with total paid and balance due
-         │
-         ▼
-5. FOLLOW UP
-   ├── Option 9  — dues report, with total outstanding
-   ├── Option 6  — payment history
-   ├── Option 8  — void a wrong entry
-   └── Option 10 — export payments to CSV
+4. FOLLOW UP
+   ├── Spot unpaid students by the status tag in the table
+   ├── GET /api/students/{id}/payments  — payment history of a student
+   └── Activity panel shows who paid what and when
 ```
 
 ---
 
 ## 🏗️ Architecture Overview
 
-The system is a single Java program that talks to MySQL through JDBC. Business rules such as dues and overpayment checks run in SQL and Java, with no separate server layer.
+The app is a single Spring Boot service that serves both the API and the web page. It reads and writes two databases.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                      CONSOLE (Menu-driven UI)                        │
-│            Scanner input  →  numbered menu  →  printed output        │
+│                  BROWSER  (static/index.html)                        │
+│        HTML + CSS + JavaScript  →  fetch() calls to /api/...         │
 └───────────────────────────┬──────────────────────────────────────────┘
-                            │ method calls
+                            │ HTTP / JSON
                             ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│                         FeeApp.java (Java 17)                        │
+│                  FeeController.java  (REST API)                      │
 │                                                                      │
-│  Courses            Students            Payments                     │
-│  ─────────────      ─────────────       ─────────────────            │
-│  addCourse()        addStudent()        collectFee()                 │
-│  listCourses()      studentReport()     paymentHistory()             │
-│                     deleteStudent()     printReceipt()               │
-│                                         voidPayment()                │
-│                                         exportCsv()                  │
-└───────────────────────────┬──────────────────────────────────────────┘
-                            │ JDBC (PreparedStatement, transactions)
-                            ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                           MySQL DATABASE                             │
-│                 fee_db:  courses · students · payments               │
-└──────────────────────────────────────────────────────────────────────┘
+│  Students            Payments               Reporting                │
+│  ─────────────       ─────────────────      ─────────────            │
+│  list()              pay()                  stats()                  │
+│  add()               history()              logs()                   │
+│  delete()                                                            │
+└──────────────┬─────────────────────────────────────┬─────────────────┘
+               │ Spring Data JPA                     │ Spring Data MongoDB
+               ▼                                     ▼
+┌──────────────────────────────┐      ┌──────────────────────────────┐
+│        MySQL: fee_db         │      │     MongoDB: fee_logs        │
+│     student · payment        │      │       activity_logs          │
+└──────────────────────────────┘      └──────────────────────────────┘
 ```
 
 ---
@@ -133,87 +127,90 @@ The system is a single Java program that talks to MySQL through JDBC. Business r
 ## 📁 Project Structure
 
 ```
-fee-system/
+fee-management/
 │
-├── schema.sql                  # Database, tables and seed courses
-├── pom.xml                     # Maven build and dependency configuration
-├── README.md                   # Project documentation
+├── pom.xml                         # Maven build and dependencies
+├── schema.sql                      # Reference SQL (tables are auto-created)
+├── README.md                       # Project documentation
 │
-└── src/
-    └── main/
-        └── java/
-            └── FeeApp.java     # Complete application (menu, JDBC, receipts, CSV)
+└── src/main/
+    ├── java/com/fees/
+    │   ├── FeeApp.java             # Application entry point
+    │   ├── Student.java            # MySQL entity — student and total fee
+    │   ├── Payment.java            # MySQL entity — each payment received
+    │   ├── ActivityLog.java        # MongoDB document — audit entry
+    │   ├── StudentRepo.java        # JPA repository for students
+    │   ├── PaymentRepo.java        # JPA repository + paid-amount query
+    │   ├── LogRepo.java            # MongoDB repository for logs
+    │   └── FeeController.java      # REST endpoints and business rules
+    │
+    └── resources/
+        ├── application.properties  # Database connections and port
+        └── static/index.html       # Responsive frontend (single page)
 ```
-
-Running the CSV export creates `payments.csv` in the folder you launch the app from.
 
 ---
 
 ## 🗄️ Database Design
 
+### MySQL (`fee_db`)
+
 | Table | Description | Key Fields |
 |---|---|---|
-| **courses** | Course names and standard fees | `id`, `name` (unique), `fee` |
-| **students** | Enrolled students with their own fee and discount | `id`, `name`, `phone`, `course_id`, `fee`, `discount`, `created_at` |
-| **payments** | Every fee payment received | `id`, `student_id`, `amount`, `paid_on`, `mode`, `reference` |
-
-**Relationships**
-
-- **Course → Student**: one-to-many (a course has many students)
-- **Student → Payment**: one-to-many (a student can pay in several instalments)
+| **student** | Enrolled students and their total fee | `id`, `name`, `email`, `course`, `total_fee` |
+| **payment** | Every fee payment received | `id`, `student_id`, `amount`, `method`, `paid_on` |
 
 ```
-courses (id, name, fee)
+student (id, name, email, course, total_fee)
    ▲
-   │ course_id
-students (id, name, phone, course_id, fee, discount, created_at)
-   ▲
-   │ student_id  (ON DELETE CASCADE)
-payments (id, student_id, amount, paid_on, mode, reference)
+   │ student_id
+payment (id, student_id, amount, method, paid_on)
 ```
+
+### MongoDB (`fee_logs`)
+
+| Collection | Description | Key Fields |
+|---|---|---|
+| **activity_logs** | Audit trail of every action | `_id`, `action`, `detail`, `time` |
+
+Actions recorded: `STUDENT_ADDED`, `STUDENT_DELETED` and `PAYMENT`.
 
 **Design decisions**
 
-- **Dues are calculated, not stored.** Due = `fee − discount − SUM(payments)`. Voiding a payment restores the due automatically and the totals never drift out of sync.
-- **Each student keeps their own fee.** The fee is copied from the course at enrolment, so a later change to the course fee does not alter existing students' dues.
-- **Money uses `DECIMAL(10,2)` and `BigDecimal`** to avoid floating-point rounding errors.
-- **Integrity rules:** primary keys on all tables, foreign keys for `course_id` and `student_id`, a `UNIQUE` course name, and `CHECK` constraints that keep fees and amounts above zero and discounts non-negative.
-- **Receipt and student numbers** come from auto-increment IDs and are shown as `R00001` and `S0001`.
+- **Dues are calculated, not stored.** Due = `total_fee − SUM(payments)`, so totals never drift out of sync.
+- **Two databases, two jobs.** MySQL holds the money records that need accuracy; MongoDB holds the flexible, append-only log.
+- **Money uses `DECIMAL(12,2)` and `BigDecimal`** to avoid floating-point rounding errors.
+- **Status is derived:** `PAID` when due is zero, `PARTIAL` when something is paid, otherwise `UNPAID`.
+- **Tables are created automatically** by Hibernate (`ddl-auto=update`). `schema.sql` is provided as a reference and also adds a foreign key with `ON DELETE CASCADE` if you create the tables by hand.
 
 ---
 
-## 📋 Menu Reference
+## 🔌 REST API Reference
 
-| Option | Action |
-|---|---|
-| `1` | Add a course, or update its fee if the name already exists |
-| `2` | List courses |
-| `3` | Add a student |
-| `4` | List all students with payable, paid, due and status |
-| `5` | Collect a fee and print the receipt |
-| `6` | Show payment history |
-| `7` | Print a receipt by payment ID |
-| `8` | Void a payment |
-| `9` | Dues report (students with a pending balance) |
-| `10` | Export payments to `payments.csv` |
-| `11` | Delete a student and their payments |
-| `0` | Exit |
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/students` | List students with paid, due and status |
+| `POST` | `/api/students` | Add a student |
+| `DELETE` | `/api/students/{id}` | Delete a student and their payments |
+| `POST` | `/api/payments` | Record a payment (rejects overpayment) |
+| `GET` | `/api/students/{id}/payments` | Payment history of one student |
+| `GET` | `/api/stats` | Dashboard totals |
+| `GET` | `/api/logs` | Latest 20 activity log entries |
 
-### Sample receipt
+**Example — add a student**
 
+```bash
+curl -X POST http://localhost:8080/api/students \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Asha Verma","email":"asha@example.com","course":"PG-DAC","totalFee":95000}'
 ```
-----------------------------------------
-              FEE RECEIPT
-----------------------------------------
-Receipt no.   : R00001
-Date          : 2026-10-14
-Student       : Asha Verma (S0001)
-Course        : PG-DAC
-Mode          : UPI / 4821937
-Amount paid   : Rs 50,000.00
-Total paid    : Rs 50,000.00
-Balance due   : Rs 45,000.00
-----------------------------------------
+
+**Example — record a payment**
+
+```bash
+curl -X POST http://localhost:8080/api/payments \
+  -H "Content-Type: application/json" \
+  -d '{"studentId":1,"amount":50000,"method":"UPI"}'
 ```
 
 ---
@@ -226,47 +223,53 @@ Balance due   : Rs 45,000.00
 |---|---|
 | JDK 17 or later | Compile and run the Java code |
 | Maven 3.6+ | Build and dependency management |
-| MySQL 8.x | Database server |
-| MySQL Workbench / phpMyAdmin (optional) | Viewing the data visually |
+| MySQL 8.x | Fees and payments database |
+| MongoDB 6+ | Activity log database |
+| MySQL Workbench / MongoDB Compass (optional) | Viewing the data visually |
 | VS Code, IntelliJ or Eclipse | Editing the project |
 
 ### Steps
 
 ```bash
-# 1. Create the database, tables and sample courses
-mysql -u root -p < schema.sql
+# 1. Start MySQL (port 3306) and MongoDB (port 27017)
 
-# 2. Set your database credentials (defaults: root / empty password)
-#    Linux / macOS
-export DB_USER=root
-export DB_PASS=yourpassword
-
-#    Windows (Command Prompt)
-set DB_USER=root
-set DB_PASS=yourpassword
-
-#    Windows (PowerShell)
-$env:DB_USER="root"
-$env:DB_PASS="yourpassword"
+# 2. Set your MySQL username and password in
+#    src/main/resources/application.properties
 
 # 3. Build and run
-mvn compile exec:java
+mvn spring-boot:run
+
+# 4. Open the app
+#    http://localhost:8080
 ```
+
+The `fee_db` database is created automatically if it does not exist, and the tables appear on first start.
 
 ### Configuration
 
-| Variable | Default |
+| Property | Default |
 |---|---|
-| `DB_URL` | `jdbc:mysql://localhost:3306/fee_db?useSSL=false&allowPublicKeyRetrieval=true` |
-| `DB_USER` | `root` |
-| `DB_PASS` | *(empty)* |
+| `spring.datasource.url` | `jdbc:mysql://localhost:3306/fee_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC` |
+| `spring.datasource.username` | `root` |
+| `spring.datasource.password` | `root` |
+| `spring.data.mongodb.uri` | `mongodb://localhost:27017/fee_logs` |
+| `server.port` | `8080` |
+
+You can also override any of these without editing the file, for example:
+
+```bash
+# Linux / macOS
+export SPRING_DATASOURCE_PASSWORD=yourpassword
+# Windows (PowerShell)
+$env:SPRING_DATASOURCE_PASSWORD="yourpassword"
+```
 
 ### Typical first session
 
-1. Run the app and choose `2` to see the seeded courses (PG-DAC and PG-DBDA).
-2. Choose `3` to enrol a student and note the Student ID shown.
-3. Choose `5` to collect a fee using that ID. The receipt prints immediately.
-4. Choose `9` to check pending dues.
+1. Open `http://localhost:8080`.
+2. Use **Add Student** to enrol a student with a course and total fee.
+3. Use **Record Payment** to pick the student, enter an amount and choose a mode.
+4. Watch the status tag, the summary cards and the activity panel update.
 
 ---
 
@@ -274,11 +277,12 @@ mvn compile exec:java
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **Language** | Java 17 | Application logic and console interface |
-| **Database Access** | JDBC (MySQL Connector/J 8.4.0) | Prepared statements and transactions |
-| **Database** | MySQL 8 | Storing courses, students and payments |
+| **Language** | Java 17 | Application logic |
+| **Framework** | Spring Boot 3.3.4 (Web, Data JPA, Data MongoDB) | REST API and database access |
+| **Relational DB** | MySQL 8 + Connector/J | Students and payments |
+| **Document DB** | MongoDB | Activity log |
+| **Frontend** | HTML, CSS, vanilla JavaScript | Responsive single-page interface |
 | **Build Tool** | Maven | Dependencies and running the app |
-| **Database Tooling** | MySQL Workbench / phpMyAdmin | Visual database management |
 | **Editor** | VS Code / IntelliJ / Eclipse | Development environment |
 
 ---
@@ -287,12 +291,11 @@ mvn compile exec:java
 
 The current version has a single role with full access and no login.
 
-### Operator (Accountant / Placement or Admin Staff)
-- Creates courses and updates their fees
-- Enrols and deletes students
-- Collects fees and prints receipts
-- Voids incorrect payments
-- Reviews dues and payment history, and exports data to CSV
+### Operator (Accountant / Admin Staff)
+- Adds and deletes students
+- Records fee payments
+- Reviews dues, status and totals on the dashboard
+- Reads the activity log
 
 ---
 
@@ -300,41 +303,38 @@ The current version has a single role with full access and no login.
 
 | Problem | Fix |
 |---|---|
-| `Cannot connect to MySQL` | Check that MySQL is running and that `DB_URL`, `DB_USER` and `DB_PASS` are correct |
-| `Unknown database 'fee_db'` | Run `schema.sql` first |
-| `Access denied for user` | Set the right `DB_USER` and `DB_PASS`, or create a MySQL user with access to `fee_db` |
-| `Public Key Retrieval is not allowed` | Keep `allowPublicKeyRetrieval=true` in `DB_URL` |
-| `release version 17 not supported` | Install JDK 17 or later and make sure `JAVA_HOME` points to it |
-| Rupee symbol shows incorrectly | The app prints `Rs` instead of ₹ to avoid console encoding problems |
+| `Communications link failure` | MySQL is not running or the URL/port is wrong |
+| `Access denied for user 'root'` | Fix the username and password in `application.properties` |
+| `MongoTimeoutException` / activity panel empty | Start MongoDB on port 27017 or change `spring.data.mongodb.uri` |
+| `Port 8080 was already in use` | Change `server.port` or stop the other program |
+| `release version 17 not supported` | Install JDK 17+ and point `JAVA_HOME` to it |
+| `Amount exceeds due` | The payment is larger than the remaining balance; enter a smaller amount |
+| Blank page | Make sure you open `http://localhost:8080`, not the HTML file directly |
 
 ---
 
 ## ⚠️ Limitations
 
-- Console only, with no graphical or web interface
-- Single-user, with no login or role-based access
+- No login or role-based access
 - One total fee per student, with no instalment schedule or due dates
 - No late-fee or fine calculation
-- Voiding permanently deletes the payment row, so there is no audit trail
-- Receipts print to the console only, with no PDF output
-- No SMS or email notifications
+- No printable receipts, void-payment or CSV export
+- Course is a plain text field, with no separate course table
+- Overpayment check is not locked, so two simultaneous payments for one student could both pass
+- Payment history is available through the API only, not yet on the page
+- Deleting a student permanently removes their payments (the deletion is only noted in the log)
 
 ---
 
 ## 🔮 Future Scope
 
-- Web version using Spring Boot REST APIs
-- JavaFX or Swing desktop interface
-- Login with admin and accountant roles
-- Instalment schedules with due dates and automatic reminders
-- Late-fee calculation
+- Login with admin and accountant roles (Spring Security)
+- Course master table with default fees
 - PDF receipts with an institute logo
-- Audit log for voided and deleted records
-- Dashboard with collection charts and course-wise analytics
+- Void payment with a reason, kept in the audit log
+- Instalment schedules, due dates and automatic reminders
+- Late-fee calculation
+- Locking or optimistic versioning to prevent simultaneous overpayment
+- CSV and Excel export
+- Charts and course-wise analytics on the dashboard
 - SMS and email receipts for students and parents
-
-<div align="center">
-
-Developed by Lakshya Kansal
-
-</div>
