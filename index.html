@@ -9,51 +9,75 @@ main{max-width:1100px;margin:auto;padding:16px;display:grid;gap:16px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
 .stat b{display:block;font-size:1.4rem;margin-top:4px}.stat span{color:var(--mut);font-size:.85rem}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
-h3{margin:0 0 12px}form{display:grid;gap:8px}
-input,select,button{padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;width:100%}
-button{background:var(--pri);color:#fff;border:0;cursor:pointer;font-weight:600}button.sm{width:auto;padding:6px 10px;font-size:.8rem}button.del{background:var(--bad)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+h3{margin:0 0 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}form{display:grid;gap:8px}
+input,select,button,.btn{padding:10px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;width:100%}
+button,.btn{background:var(--pri);color:#fff;border:0;cursor:pointer;font-weight:600;text-decoration:none;text-align:center}
+.sm{width:auto;padding:6px 10px;font-size:.8rem}.del{background:var(--bad)}.alt{background:var(--ok)}
 .wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem}
 th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .tag{padding:2px 8px;border-radius:99px;color:#fff;font-size:.75rem}.PAID{background:var(--ok)}.PARTIAL{background:var(--warn)}.UNPAID{background:var(--bad)}
 ul{list-style:none;margin:0;padding:0;font-size:.85rem}li{padding:6px 0;border-bottom:1px solid var(--bd)}li small{color:var(--mut);display:block}
-#msg{color:var(--bad);min-height:1.2em;font-size:.85rem}
+dialog{background:var(--card);color:var(--tx);border:1px solid var(--bd);border-radius:12px}dialog pre{font-size:.9rem;margin:0 0 12px}
+dialog .row{display:flex;gap:8px}@media print{header,main{display:none}dialog button{display:none}}
 </style></head><body>
 <header>💰 Fee Management System</header>
 <main>
 <div class="stats" id="stats"></div>
 <div class="grid">
+ <div class="card"><h3>Add / Update Course</h3>
+  <form id="cf"><input name="name" placeholder="Course name" required><input name="fee" type="number" min="1" step="0.01" placeholder="Course fee" required>
+  <button>Save Course</button></form></div>
  <div class="card"><h3>Add Student</h3>
-  <form id="sf"><input name="name" placeholder="Full name" required><input name="email" type="email" placeholder="Email">
-  <input name="course" placeholder="Course"><input name="totalFee" type="number" min="0" step="0.01" placeholder="Total fee" required>
+  <form id="sf"><input name="name" placeholder="Full name" required><input name="phone" placeholder="Phone">
+  <select name="courseId" id="csel"></select>
+  <input name="totalFee" type="number" min="1" step="0.01" placeholder="Fee (only if no course chosen)">
+  <input name="discount" type="number" min="0" step="0.01" placeholder="Discount / scholarship (optional)">
   <button>Add Student</button></form></div>
  <div class="card"><h3>Record Payment</h3>
   <form id="pf"><select name="studentId" id="sel" required></select>
   <input name="amount" type="number" min="1" step="0.01" placeholder="Amount" required>
-  <select name="method"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option></select>
-  <button>Save Payment</button></form><div id="msg"></div></div>
+  <select name="method"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option><option>Cheque</option></select>
+  <input name="reference" placeholder="Reference no. (optional)"><button>Save Payment</button></form></div>
 </div>
-<div class="card"><h3>Students</h3><div class="wrap"><table><thead><tr><th>Name</th><th>Course</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<div class="card"><h3>Students <input id="q" placeholder="Search name or course" style="max-width:240px"></h3>
+ <div class="wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Course</th><th>Payable</th><th>Paid</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>
+<div class="card"><h3>Recent Payments <a class="btn sm alt" href="/api/payments/export">Export CSV</a></h3>
+ <div class="wrap"><table><thead><tr><th>Receipt</th><th>Date</th><th>Student</th><th>Amount</th><th>Mode</th><th></th></tr></thead><tbody id="pb"></tbody></table></div></div>
 <div class="card"><h3>Recent Activity <small style="color:var(--mut)">(MongoDB)</small></h3><ul id="logs"></ul></div>
 </main>
+<dialog id="rc"><pre id="rt"></pre><div class="row"><button onclick="window.print()">Print</button><button class="del" onclick="rc.close()">Close</button></div></dialog>
 <script>
-const $=s=>document.querySelector(s), money=n=>'₹'+Number(n).toLocaleString('en-IN');
+const $=s=>document.querySelector(s), money=n=>'Rs '+Number(n).toLocaleString('en-IN',{minimumFractionDigits:2});
+const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(u,o){const r=await fetch('/api'+u,o&&{method:o.m,headers:{'Content-Type':'application/json'},body:o.b&&JSON.stringify(o.b)});
- if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'Error')}return r.status==204?null:r.json().catch(()=>null)}
+ if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||e.error||'Error')}return r.json().catch(()=>null)}
+let students=[];
 async function load(){
- const [st,ss,lg]=await Promise.all([api('/stats'),api('/students'),api('/logs')]);
- $('#stats').innerHTML=[['Students',st.students],['Total Fees',money(st.total)],['Collected',money(st.collected)],['Pending',money(st.pending)]]
+ const [st,ss,pm,lg,cs]=await Promise.all([api('/stats'),api('/students'),api('/payments'),api('/logs'),api('/courses')]);
+ students=ss;
+ $('#stats').innerHTML=[['Students',st.students],['Total Payable',money(st.total)],['Collected',money(st.collected)],['Pending',money(st.pending)]]
   .map(([a,b])=>`<div class="card stat"><span>${a}</span><b>${b}</b></div>`).join('');
- $('#tb').innerHTML=ss.map(s=>`<tr><td>${esc(s.name)}</td><td>${esc(s.course||'-')}</td><td>${money(s.totalFee)}</td><td>${money(s.paid)}</td><td>${money(s.due)}</td>
-  <td><span class="tag ${s.status}">${s.status}</span></td><td><button class="sm del" onclick="del(${s.id})">Delete</button></td></tr>`).join('');
- $('#sel').innerHTML='<option value="">Select student</option>'+ss.filter(s=>s.due>0).map(s=>`<option value="${s.id}">${esc(s.name)} (due ${money(s.due)})</option>`).join('');
+ $('#csel').innerHTML='<option value="">No course (enter fee)</option>'+cs.map(c=>`<option value="${c.id}">${esc(c.name)} - ${money(c.fee)}</option>`).join('');
+ $('#sel').innerHTML='<option value="">Select student</option>'+ss.filter(s=>s.due>0).map(s=>`<option value="${s.id}">${esc(s.studentNo)} ${esc(s.name)} (due ${money(s.due)})</option>`).join('');
+ $('#pb').innerHTML=pm.map(p=>`<tr><td>${p.receiptNo}</td><td>${p.paidOn}</td><td>${esc(p.student)}</td><td>${money(p.amount)}</td><td>${esc(p.method)}</td>
+  <td><button class="sm" onclick="rcpt(${p.id})">Receipt</button> <button class="sm del" onclick="voidP(${p.id})">Void</button></td></tr>`).join('');
  $('#logs').innerHTML=lg.map(l=>`<li>${esc(l.action)}: ${esc(l.detail)}<small>${new Date(l.time).toLocaleString()}</small></li>`).join('');
+ draw();
 }
-const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function del(id){if(confirm('Delete student and payments?')){await api('/students/'+id,{m:'DELETE'});load()}}
-function data(f){const o=Object.fromEntries(new FormData(f));return o}
-$('#sf').onsubmit=async e=>{e.preventDefault();await api('/students',{m:'POST',b:data(e.target)});e.target.reset();load()};
-$('#pf').onsubmit=async e=>{e.preventDefault();$('#msg').textContent='';
- try{await api('/payments',{m:'POST',b:data(e.target)});e.target.reset();load()}catch(x){$('#msg').textContent=x.message}};
+function draw(){const k=$('#q').value.toLowerCase();
+ $('#tb').innerHTML=students.filter(s=>(s.name+' '+(s.course||'')).toLowerCase().includes(k)).map(s=>`<tr><td>${s.studentNo}</td><td>${esc(s.name)}</td><td>${esc(s.course||'-')}</td>
+  <td>${money(s.payable)}</td><td>${money(s.paid)}</td><td>${money(s.due)}</td><td><span class="tag ${s.status}">${s.status}</span></td>
+  <td><button class="sm del" onclick="del(${s.id})">Delete</button></td></tr>`).join('')}
+$('#q').oninput=draw;
+const run=async f=>{try{await f();await load()}catch(e){alert(e.message)}};
+const del=id=>confirm('Delete student and all payments?')&&run(()=>api('/students/'+id,{m:'DELETE'}));
+const voidP=id=>confirm('Void this payment? The amount returns to the due.')&&run(()=>api('/payments/'+id,{m:'DELETE'}));
+async function rcpt(id){try{const r=await api('/payments/'+id+'/receipt');const L=(a,b)=>a.padEnd(14)+': '+b+'\n',line='-'.repeat(40)+'\n';
+ $('#rt').textContent=line+'           FEE RECEIPT\n'+line+L('Receipt no.',r.receiptNo)+L('Date',r.date)+L('Student',r.student)+L('Course',r.course)+L('Mode',r.mode)
+  +L('Amount paid',money(r.amount))+L('Total paid',money(r.totalPaid))+L('Balance due',money(r.balanceDue))+line;rc.showModal()}catch(e){alert(e.message)}}
+function data(f){const o=Object.fromEntries(new FormData(f));Object.keys(o).forEach(k=>o[k]===''&&delete o[k]);return o}
+const submit=(id,url)=>$(id).onsubmit=e=>{e.preventDefault();run(async()=>{await api(url,{m:'POST',b:data(e.target)});e.target.reset()})};
+submit('#cf','/courses');submit('#sf','/students');submit('#pf','/payments');
 load();
 </script></body></html>
