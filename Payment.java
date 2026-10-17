@@ -7,6 +7,6 @@ public class Payment {
   @Id @GeneratedValue(strategy=GenerationType.IDENTITY) public Long id;
   public Long studentId;
   public BigDecimal amount;
-  public String method;
+  public String method, reference;
   public LocalDate paidOn = LocalDate.now();
 }
