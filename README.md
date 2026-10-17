@@ -338,3 +338,10 @@ The current version has a single role with full access and no login.
 - CSV and Excel export
 - Charts and course-wise analytics on the dashboard
 - SMS and email receipts for students and parents
+
+  
+<div align="center">
+
+Developed by Lakshya Kansal
+
+</div>
